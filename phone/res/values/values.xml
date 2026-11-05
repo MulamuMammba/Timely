@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">In Due Time</string>
+    <color name="night">#FF0D0B14</color>
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/night</item>
+        <item name="android:colorBackground">@color/night</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:colorAccent">#FFB7A3F0</item>
+        <item name="android:colorControlActivated">#FFB7A3F0</item>
+        <item name="android:textColorHighlight">#665B47A8</item>
+    </style>
+</resources>

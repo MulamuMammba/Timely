@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">In Due Time</string>
+    <string name="cfg_time">Time</string>
+    <string name="opt_analog">Analog</string>
+    <string name="opt_digital">Digital</string>
+    <string name="cfg_hands">Hands</string>
+    <string name="opt_slim">Slim</string>
+    <string name="opt_tapered">Tapered</string>
+    <string name="opt_baton">Baton</string>
+    <string name="cfg_seconds">Seconds hand</string>
+    <string name="cfg_font">Digital font</string>
+    <string name="opt_serif">Serif</string>
+    <string name="opt_sans">Sans</string>
+    <string name="opt_mono">Mono</string>
+    <string name="cfg_color">Hand colour</string>
+    <string name="c_linen">Linen</string>
+    <string name="c_lavender">Lavender</string>
+    <string name="c_gold">Gold</string>
+    <string name="slot_dial">Dial</string>
+    <string name="slot_aod">Always on dial</string>
+    <string name="hint_dial">HOLD TO SET THE DIAL</string>
+</resources>
