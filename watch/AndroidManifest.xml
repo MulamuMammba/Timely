@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false">
@@ -17,23 +18,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <service android:name=".Dial" android:label="In Due Time dial" android:icon="@mipmap/ic_launcher" android:exported="true"
-            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+        <service android:name=".FaceService" android:label="In Due Time" android:exported="true" android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
-                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/>
+                <action android:name="android.service.wallpaper.WallpaperService"/>
+                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE"/>
             </intent-filter>
-            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="LARGE_IMAGE"/>
-            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
-            <meta-data android:name="android.support.wearable.complications.SAFE_WATCH_FACES" android:value="com.watchman.induetime.face"/>
-        </service>
-        <service android:name=".Dial$Aod" android:label="In Due Time dial (always on)" android:icon="@mipmap/ic_launcher" android:exported="true"
-            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
-            <intent-filter>
-                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/>
-            </intent-filter>
-            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="LARGE_IMAGE"/>
-            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
-            <meta-data android:name="android.support.wearable.complications.SAFE_WATCH_FACES" android:value="com.watchman.induetime.face"/>
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/watch_face"/>
+            <meta-data android:name="com.google.android.wearable.watchface.preview" android:resource="@drawable/preview"/>
+            <meta-data android:name="com.google.android.wearable.watchface.preview_circular" android:resource="@drawable/preview"/>
         </service>
         <receiver android:name=".Alarms" android:exported="false"/>
         <receiver android:name=".Alarms$Boot" android:exported="false">

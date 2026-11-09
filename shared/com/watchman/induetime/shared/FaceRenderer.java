@@ -44,9 +44,10 @@ public final class FaceRenderer {
         text.setTextAlign(Paint.Align.CENTER);
     }
 
-    /** Old entry point: draws everything with hands, used by the phone preview. */
+    /** Draws the whole face, time included, the way the style asks. */
     public void draw(Canvas c, int w, int h, WatchData d, long now, boolean ambient) {
-        draw(c, w, h, d, d.style(), now, ambient, TIME_HANDS);
+        FaceStyle st = d.style();
+        draw(c, w, h, d, st, now, ambient, "digital".equals(st.timeMode) ? TIME_DIGITAL : TIME_HANDS);
     }
 
     public void draw(Canvas c, int w, int h, WatchData d, FaceStyle st, long now, boolean ambient, int timeMode) {
@@ -63,6 +64,14 @@ public final class FaceRenderer {
         } else if ("glow".equals(st.ground)) {
             c.drawColor(Palette.NIGHT);
             fill.setShader(new RadialGradient(70, 40, 170, 0x995B47A8, 0x000D0B14, Shader.TileMode.CLAMP));
+            c.drawCircle(100, 100, 142, fill);
+            fill.setShader(null);
+        } else if ("navy".equals(st.ground)) {
+            fill.setShader(new RadialGradient(80, 60, 160, 0xFF24365A, 0xFF101A2C, Shader.TileMode.CLAMP));
+            c.drawCircle(100, 100, 142, fill);
+            fill.setShader(null);
+        } else if ("amethyst".equals(st.ground)) {
+            fill.setShader(new RadialGradient(80, 60, 160, 0xFF3A2C6E, 0xFF140F24, Shader.TileMode.CLAMP));
             c.drawCircle(100, 100, 142, fill);
             fill.setShader(null);
         } else {
@@ -111,15 +120,15 @@ public final class FaceRenderer {
             }
         }
 
-        // Time, only for the phone preview
+        // Time
         if (timeMode == TIME_HANDS) {
-            int hc = alpha(ambient ? 0xFFA49DB8 : Palette.LINEN, ambient ? Math.max(dim, 150) : 255);
-            hand(c, hourNow * 30, 42, 4.5f, hc);
-            hand(c, (mm + ss / 60f) * 6, 62, 2.8f, hc);
-            if (!ambient) {
+            int hc = ambient ? alpha(0xFFA49DB8, Math.max(dim, 150)) : st.handColor;
+            hand(c, st.hands, hourNow * 30, 42, true, hc, ambient);
+            hand(c, st.hands, (mm + ss / 60f) * 6, 62, false, hc, ambient);
+            if (!ambient && st.seconds) {
                 double a = Math.toRadians(ss * 6 - 90);
                 line.setStrokeWidth(1f);
-                line.setColor(Palette.LAV);
+                line.setColor(st.secondsColor);
                 c.drawLine(100 - 13 * (float) Math.cos(a), 100 - 13 * (float) Math.sin(a), 100 + 66 * (float) Math.cos(a), 100 + 66 * (float) Math.sin(a), line);
             }
             fill.setColor(ambient ? Color.BLACK : Palette.NIGHT);
@@ -128,13 +137,22 @@ public final class FaceRenderer {
             line.setColor(hc);
             c.drawCircle(100, 100, 3.4f, line);
         } else if (timeMode == TIME_DIGITAL) {
-            text.setTypeface(serif);
-            text.setLetterSpacing(0);
-            text.setTextSize(46);
-            text.setColor(alpha(ambient ? 0xFFA49DB8 : Palette.LINEN, ambient ? Math.max(dim, 150) : 255));
-            weight(text, 300);
-            c.drawText(String.format(Locale.ENGLISH, "%02d:%02d", hh, mm), 100, 113, text);
-            weight(text, 400);
+            Typeface tf = "mono".equals(st.font) ? mono : "sans".equals(st.font) ? Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL) : serif;
+            text.setTypeface(tf);
+            text.setLetterSpacing("mono".equals(st.font) ? 0.02f : 0);
+            float size = "small".equals(st.timeSize) ? 36 : "large".equals(st.timeSize) ? 58 : 46;
+            if ("mono".equals(st.font)) size *= 0.82f;
+            text.setTextSize(size);
+            text.setColor(ambient ? alpha(0xFFA49DB8, Math.max(dim, 150)) : st.handColor);
+            if (tf == serif) weight(text, ambient ? 200 : 300);
+            int hour = st.h24 ? hh : (hh % 12 == 0 ? 12 : hh % 12);
+            c.drawText(String.format(Locale.ENGLISH, st.h24 ? "%02d:%02d" : "%d:%02d", hour, mm), 100, 100 + size * 0.36f, text);
+            if (tf == serif) weight(text, 400);
+            if (!ambient && st.seconds) {
+                double a = Math.toRadians(ss * 6 - 90);
+                fill.setColor(st.secondsColor);
+                c.drawCircle(100 + 89 * (float) Math.cos(a), 100 + 89 * (float) Math.sin(a), 2.2f, fill);
+            }
         }
         c.restore();
     }
@@ -164,6 +182,7 @@ public final class FaceRenderer {
             float a1 = hourNow * 30 + (e - now) / 120000f - gap;
             if (a1 <= a0) continue;
             boolean isNow = i.start <= now && i.end > now && !i.google;
+            boolean past = st.fadePast && i.end <= now;
             if (isNow) {
                 if (!ambient) {
                     glow.setColor(st.accent);
@@ -178,6 +197,7 @@ public final class FaceRenderer {
                 arc.setStrokeWidth(outline ? 1.6f : st.ringStroke());
                 int col = i.google ? Palette.LINEN : i.color;
                 int a = i.google ? 140 : 230;
+                if (past) a = a * 40 / 100;
                 if (ambient) a = a * dim / 255;
                 arc.setColor((col & 0x00FFFFFF) | (a << 24));
                 arc.setPathEffect(i.google ? new DashPathEffect(new float[]{2, 3}, 0) : null);
@@ -214,11 +234,34 @@ public final class FaceRenderer {
         }
     }
 
-    private void hand(Canvas c, float deg, float len, float width, int color) {
-        double a = Math.toRadians(deg - 90);
-        line.setStrokeWidth(width);
+    private void hand(Canvas c, String style, float deg, float len, boolean hour, int color, boolean ambient) {
+        c.save();
+        c.rotate(deg, 100, 100);
+        fill.setColor(color);
         line.setColor(color);
-        c.drawLine(100, 100, 100 + len * (float) Math.cos(a), 100 + len * (float) Math.sin(a), line);
+        if ("tapered".equals(style)) {
+            float w = hour ? 3.2f : 2.4f;
+            android.graphics.Path p = new android.graphics.Path();
+            p.moveTo(100 - w, 104);
+            p.lineTo(100 - w * 0.25f, 100 - len);
+            p.lineTo(100 + w * 0.25f, 100 - len);
+            p.lineTo(100 + w, 104);
+            p.close();
+            if (ambient) { line.setStrokeWidth(1f); c.drawPath(p, line); } else c.drawPath(p, fill);
+        } else if ("baton".equals(style)) {
+            float w = hour ? 3.4f : 2.6f;
+            RectF r = new RectF(100 - w, 100 - len, 100 + w, 104);
+            if (ambient) { line.setStrokeWidth(1f); c.drawRoundRect(r, 1.5f, 1.5f, line); }
+            else {
+                c.drawRoundRect(r, 1.5f, 1.5f, fill);
+                fill.setColor(0x660D0B14);
+                c.drawRoundRect(new RectF(100 - w * 0.3f, 100 - len + 5, 100 + w * 0.3f, 100 - 8), 1, 1, fill);
+            }
+        } else {
+            line.setStrokeWidth(hour ? 4.5f : 2.8f);
+            c.drawLine(100, 100, 100, 100 - len, line);
+        }
+        c.restore();
     }
 
     private void label(Canvas c, String s, float x, float y, float size, int color, float tracking) {

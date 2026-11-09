@@ -1409,7 +1409,7 @@ public class MainActivity extends Activity {
                 android.graphics.Path clip = new android.graphics.Path();
                 clip.addCircle(s / 2f, s / 2f, s / 2f, android.graphics.Path.Direction.CW);
                 c.clipPath(clip);
-                r.draw(c, s, s, d, cur, System.currentTimeMillis(), amb, previewDigital ? FaceRenderer.TIME_DIGITAL : FaceRenderer.TIME_HANDS);
+                r.draw(c, s, s, d, cur, System.currentTimeMillis(), amb, "digital".equals(cur.timeMode) ? FaceRenderer.TIME_DIGITAL : FaceRenderer.TIME_HANDS);
                 c.restore();
                 if (!amb) postInvalidateDelayed(1000);
             }
@@ -1418,9 +1418,6 @@ public class MainActivity extends Activity {
         add(preview, 18);
         preview.getLayoutParams().height = u.dp(240);
         add(u.quiet("Tap the preview to see always on display."), 6);
-        add(u.segmented(new String[]{"Preview analog", "Preview digital"}, previewDigital ? 1 : 0, new Ui.OnPick() {
-            public void picked(int i) { previewDigital = i == 1; render(false); }
-        }), 10);
 
         // Faces
         add(u.label("Face"), 24);
@@ -1434,35 +1431,53 @@ public class MainActivity extends Activity {
         add(u.quiet("custom".equals(faceId) ? "You are editing Custom." : "Change anything below and it becomes your Custom face."), 8);
         add(u.quiet("Lenses can each pick their own face in the lens editor."), 4);
 
+        // Time
+        add(u.label("Time"), 24);
+        add(u.segmented(new String[]{"Analog", "Digital"}, "digital".equals(cur.timeMode) ? 1 : 0, new Ui.OnPick() {
+            public void picked(int i) { FaceStyle f = editable(cur); f.timeMode = i == 1 ? "digital" : "analog"; saveFace(f); }
+        }), 8);
+        if ("digital".equals(cur.timeMode)) {
+            add(u.label("Font"), 16);
+            final String[] fonts = {"serif", "sans", "mono"};
+            add(u.segmented(new String[]{"Serif", "Sans", "Mono"}, idx(fonts, cur.font), new Ui.OnPick() {
+                public void picked(int i) { FaceStyle f = editable(cur); f.font = fonts[i]; saveFace(f); }
+            }), 8);
+            add(u.label("Size"), 16);
+            final String[] sizes = {"small", "medium", "large"};
+            add(u.segmented(new String[]{"Small", "Medium", "Large"}, idx(sizes, cur.timeSize), new Ui.OnPick() {
+                public void picked(int i) { FaceStyle f = editable(cur); f.timeSize = sizes[i]; saveFace(f); }
+            }), 8);
+            add(u.segmented(new String[]{"24 hour", "12 hour"}, cur.h24 ? 0 : 1, new Ui.OnPick() {
+                public void picked(int i) { FaceStyle f = editable(cur); f.h24 = i == 0; saveFace(f); }
+            }), 8);
+        } else {
+            add(u.label("Hands"), 16);
+            final String[] hs = {"slim", "tapered", "baton"};
+            add(u.segmented(new String[]{"Slim", "Tapered", "Baton"}, idx(hs, cur.hands), new Ui.OnPick() {
+                public void picked(int i) { FaceStyle f = editable(cur); f.hands = hs[i]; saveFace(f); }
+            }), 8);
+        }
+        add(u.label("digital".equals(cur.timeMode) ? "Time colour" : "Hand colour"), 16);
+        add(colourRow(cur.handColor, new ColourCb() { public void set(FaceStyle f, int col) { f.handColor = col; } }, cur), 10);
+        add(u.switchRow("digital".equals(cur.timeMode) ? "Seconds dot on the ring" : "Seconds hand", cur.seconds, new Ui.OnToggle() {
+            public void toggled(boolean v) { FaceStyle f = editable(cur); f.seconds = v; saveFace(f); }
+        }), 8);
+        if (cur.seconds) {
+            add(u.label("Seconds colour"), 12);
+            add(colourRow(cur.secondsColor, new ColourCb() { public void set(FaceStyle f, int col) { f.secondsColor = col; } }, cur), 10);
+        }
+
         // Ground and accent
         add(u.label("Ground"), 24);
-        final String[] grounds = {"night", "black", "glow"};
-        add(u.segmented(new String[]{"Night", "Black", "Glow"}, idx(grounds, cur.ground), new Ui.OnPick() {
+        final String[] grounds = {"night", "black", "glow", "navy", "amethyst"};
+        final boolean[] gOn = new boolean[grounds.length];
+        for (int i = 0; i < grounds.length; i++) gOn[i] = grounds[i].equals(cur.ground);
+        add(u.chips(new String[]{"Night", "Black", "Glow", "Navy", "Amethyst"}, gOn, false, new Ui.OnPick() {
             public void picked(int i) { FaceStyle f = editable(cur); f.ground = grounds[i]; saveFace(f); }
         }), 8);
 
         add(u.label("Accent"), 20);
-        final int[] accents = {Palette.GOLD, Palette.LAV, Palette.LINEN, 0xFF7FA39A, 0xFFC995A6, 0xFF8EA4CF};
-        Ui.FlowLayout sw = new Ui.FlowLayout(this, u.dp(12));
-        for (final int col : accents) {
-            View o = u.orb(col, 32);
-            if (col == cur.accent) {
-                FrameLayout f = new FrameLayout(this);
-                GradientDrawable ring = new GradientDrawable();
-                ring.setShape(GradientDrawable.OVAL);
-                ring.setStroke(u.dp(2), Palette.LINEN);
-                f.setBackground(ring);
-                f.setPadding(u.dp(4), u.dp(4), u.dp(4), u.dp(4));
-                f.addView(o);
-                sw.addView(f);
-            } else {
-                o.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) { FaceStyle f = editable(cur); f.accent = col; saveFace(f); }
-                });
-                sw.addView(o);
-            }
-        }
-        add(sw, 10);
+        add(colourRow(cur.accent, new ColourCb() { public void set(FaceStyle f, int col) { f.accent = col; } }, cur), 10);
         add(u.quiet("The accent marks the block you are in."), 6);
 
         // Ring
@@ -1487,6 +1502,10 @@ public class MainActivity extends Activity {
         add(u.switchRow("Google events on the ring", cur.ringGoogle, new Ui.OnToggle() {
             public void toggled(boolean v) { FaceStyle f = editable(cur); f.ringGoogle = v; saveFace(f); }
         }), 8);
+        add(u.rule(), 0);
+        add(u.switchRow("Fade blocks already passed", cur.fadePast, new Ui.OnToggle() {
+            public void toggled(boolean v) { FaceStyle f = editable(cur); f.fadePast = v; saveFace(f); }
+        }), 0);
 
         // Markers
         add(u.label("Markers"), 24);
@@ -1571,12 +1590,6 @@ public class MainActivity extends Activity {
             }
         }), 8);
 
-        // Set by Galaxy Wearable
-        LinearLayout gw = u.card();
-        gw.addView(u.label("Set in Galaxy Wearable"));
-        gw.addView(u.body("Analog or digital, hand style, hand colour, seconds hand and digital font."), u.lp(6));
-        gw.addView(u.quiet("Open Galaxy Wearable, tap the In Due Time face, then Customise."), u.lp(6));
-        add(gw, 26);
 
         // The link
         add(u.label("Your watch"), 26);
@@ -1600,12 +1613,39 @@ public class MainActivity extends Activity {
         add(card, 8);
         LinearLayout steps = u.card();
         steps.addView(u.label("First time"));
-        steps.addView(u.body("1. Install the In Due Time watch app and the In Due Time face on your watch."), u.lp(8));
-        steps.addView(u.body("2. Turn on Link with my watch above."), u.lp(6));
-        steps.addView(u.body("3. On the watch, open In Due Time and pick this phone."), u.lp(6));
-        steps.addView(u.body("4. In Galaxy Wearable, choose the In Due Time face."), u.lp(6));
-        steps.addView(u.quiet("Changes here reach the watch within about five minutes. Tap Sync now on the watch to see them at once."), u.lp(10));
+        steps.addView(u.body("1. Turn on Link with my watch above."), u.lp(8));
+        steps.addView(u.body("2. On the watch, open In Due Time and pick this phone."), u.lp(6));
+        steps.addView(u.body("3. Long-press your watch face and choose In Due Time."), u.lp(6));
+        steps.addView(u.quiet("Changes show the next time you raise your wrist. Tap Sync now on the watch to see them at once."), u.lp(10));
         add(steps, 12);
+    }
+
+    interface ColourCb { void set(FaceStyle f, int colour); }
+
+    static final int[] COLOURS = {Palette.LINEN, Palette.GOLD, Palette.LAV, 0xFF8B78D8, 0xFF7FA39A, 0xFFC995A6, 0xFF8EA4CF, 0xFFD4A373};
+
+    private View colourRow(int current, final ColourCb cb, final FaceStyle cur) {
+        Ui.FlowLayout sw = new Ui.FlowLayout(this, u.dp(12));
+        for (final int col : COLOURS) {
+            View o = u.orb(col, 30);
+            o.setContentDescription("Colour");
+            if (col == current) {
+                FrameLayout f = new FrameLayout(this);
+                GradientDrawable ring = new GradientDrawable();
+                ring.setShape(GradientDrawable.OVAL);
+                ring.setStroke(u.dp(2), Palette.LINEN);
+                f.setBackground(ring);
+                f.setPadding(u.dp(4), u.dp(4), u.dp(4), u.dp(4));
+                f.addView(o);
+                sw.addView(f);
+            } else {
+                o.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) { FaceStyle f = editable(cur); cb.set(f, col); saveFace(f); }
+                });
+                sw.addView(o);
+            }
+        }
+        return sw;
     }
 
     private static int idx(String[] arr, String v) {

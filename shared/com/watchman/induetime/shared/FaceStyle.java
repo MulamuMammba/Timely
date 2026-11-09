@@ -12,9 +12,22 @@ public final class FaceStyle {
     public String id = "custom";
     public String name = "Custom";
 
-    // Ground: night, black, glow
+    // Ground: night, black, glow, navy, amethyst
     public String ground = "night";
     public int accent = Palette.GOLD;
+
+    // Time
+    public String timeMode = "analog";     // analog, digital
+    public String hands = "slim";          // slim, tapered, baton
+    public int handColor = Palette.LINEN;
+    public boolean seconds = true;
+    public int secondsColor = Palette.LAV;
+    public String font = "serif";          // serif, sans, mono
+    public String timeSize = "medium";     // small, medium, large
+    public boolean h24 = true;
+
+    // Ring extras
+    public boolean fadePast = true;
 
     // Ring
     public String ringWidth = "regular";   // thin, regular, bold
@@ -64,20 +77,21 @@ public final class FaceStyle {
         f.id = "full"; f.name = "Full";
         f.ringWidth = "bold"; f.markers = "numerals"; f.swell = "strong"; f.iconSize = "large";
         f.lines.clear(); f.lines.add("date"); f.lines.add("block"); f.lines.add("left"); f.lines.add("next");
-        f.aodIcon = true;
+        f.aodIcon = true; f.hands = "tapered";
         out.add(f);
 
         FaceStyle n = new FaceStyle();
         n.id = "night"; n.name = "Night";
         n.ground = "black"; n.ringWidth = "thin"; n.markers = "hours"; n.accent = Palette.LAV;
         n.lines.clear(); n.lines.add("block");
-        n.aodDim = "high"; n.aodText = false;
+        n.aodDim = "high"; n.aodText = false; n.hands = "baton"; n.handColor = Palette.LAV; n.seconds = false;
         out.add(n);
 
         FaceStyle w = new FaceStyle();
         w.id = "ledger"; w.name = "Ledger";
         w.ringWidth = "thin"; w.markers = "none"; w.ringHours = 12;
-        w.lines.clear(); w.lines.add("date"); w.lines.add("block"); w.lines.add("left");
+        w.lines.clear(); w.lines.add("block"); w.lines.add("left");
+        w.timeMode = "digital"; w.icon = true; w.iconSize = "small";
         out.add(w);
         return out;
     }
@@ -99,6 +113,8 @@ public final class FaceStyle {
         try {
             JSONObject o = new JSONObject();
             o.put("id", id); o.put("n", name); o.put("gr", ground); o.put("ac", accent);
+            o.put("tm", timeMode); o.put("hd", hands); o.put("hc", handColor); o.put("se", seconds); o.put("sc", secondsColor);
+            o.put("fo", font); o.put("ts", timeSize); o.put("24", h24); o.put("fp", fadePast);
             o.put("rw", ringWidth); o.put("rh", ringHours); o.put("gp", gap); o.put("sw", swell); o.put("rg", ringGoogle);
             o.put("mk", markers);
             JSONArray l = new JSONArray();
@@ -119,6 +135,10 @@ public final class FaceStyle {
             JSONObject o = new JSONObject(s);
             f.id = o.optString("id", f.id); f.name = o.optString("n", f.name);
             f.ground = o.optString("gr", f.ground); f.accent = o.optInt("ac", f.accent);
+            f.timeMode = o.optString("tm", f.timeMode); f.hands = o.optString("hd", f.hands); f.handColor = o.optInt("hc", f.handColor);
+            f.seconds = o.optBoolean("se", f.seconds); f.secondsColor = o.optInt("sc", f.secondsColor);
+            f.font = o.optString("fo", f.font); f.timeSize = o.optString("ts", f.timeSize); f.h24 = o.optBoolean("24", f.h24);
+            f.fadePast = o.optBoolean("fp", f.fadePast);
             f.ringWidth = o.optString("rw", f.ringWidth); f.ringHours = o.optInt("rh", f.ringHours);
             f.gap = o.optString("gp", f.gap); f.swell = o.optString("sw", f.swell); f.ringGoogle = o.optBoolean("rg", f.ringGoogle);
             f.markers = o.optString("mk", f.markers);
