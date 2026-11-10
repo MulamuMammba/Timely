@@ -155,7 +155,7 @@ public final class Cal {
         v.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
         if (rrule != null && rrule.length() > 0) {
             v.put(CalendarContract.Events.RRULE, rrule);
-            v.put(CalendarContract.Events.DURATION, "P" + ((end - begin) / 1000) + "S");
+            v.put(CalendarContract.Events.DURATION, duration(end - begin));
         } else {
             v.put(CalendarContract.Events.DTEND, end);
         }
@@ -182,7 +182,7 @@ public final class Cal {
         v.put(CalendarContract.Events.DTSTART, seriesStart);
         if (rrule != null && rrule.length() > 0) {
             v.put(CalendarContract.Events.RRULE, rrule);
-            v.put(CalendarContract.Events.DURATION, "P" + ((end - begin) / 1000) + "S");
+            v.put(CalendarContract.Events.DURATION, duration(end - begin));
             v.putNull(CalendarContract.Events.DTEND);
         } else {
             v.putNull(CalendarContract.Events.RRULE);
@@ -246,6 +246,37 @@ public final class Cal {
             if (cur != null) cur.close();
         }
         return -1;
+    }
+
+    /** RFC 5545 duration. Google rejects "P5400S"; it needs the T: "PT5400S". */
+    static String duration(long ms) {
+        return "PT" + Math.max(60, ms / 1000) + "S";
+    }
+
+    /**
+     * One-time repair for repeating blocks written by 0.3 and earlier with "P...S".
+     * Google rejected those, and the calendar sync then removed them.
+     */
+    static void repairDurations(Context c) {
+        if (!allowed(c) || Store.bool(c, "repairPT", false)) return;
+        Cursor cur = null;
+        try {
+            cur = c.getContentResolver().query(CalendarContract.Events.CONTENT_URI,
+                    new String[]{CalendarContract.Events._ID, CalendarContract.Events.DURATION},
+                    CalendarContract.Events.DURATION + " LIKE 'P%S' AND " + CalendarContract.Events.DURATION + " NOT LIKE 'PT%' AND "
+                            + CalendarContract.Events.DESCRIPTION + " LIKE '%[idt:%'", null, null);
+            while (cur != null && cur.moveToNext()) {
+                String d = cur.getString(1);
+                if (d == null || !d.matches("P\\d+S")) continue;
+                ContentValues v = new ContentValues();
+                v.put(CalendarContract.Events.DURATION, "PT" + d.substring(1));
+                c.getContentResolver().update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, cur.getLong(0)), v, null, null);
+            }
+            Store.put(c, "repairPT", true);
+        } catch (Exception ignored) {
+        } finally {
+            if (cur != null) cur.close();
+        }
     }
 
     /** Repeat rule from a simple choice. */

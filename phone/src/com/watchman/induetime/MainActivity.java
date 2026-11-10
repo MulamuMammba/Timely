@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
         nowDay = Fmt.startOfDay(System.currentTimeMillis());
         render(false);
         ui.postDelayed(tick, 30000);
-        if (Cal.allowed(this)) App.changed(this);
+        if (Cal.allowed(this)) { Cal.repairDurations(this); App.changed(this); }
         WatchLink.ensure(this);
     }
 
