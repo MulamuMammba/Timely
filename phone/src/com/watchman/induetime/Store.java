@@ -214,7 +214,7 @@ public final class Store {
 
     // Watch faces
 
-    static String faceId(Context c) { return str(c, "faceId", "classic"); }
+    static String faceId(Context c) { return str(c, "faceId", "dawn"); }
     static void setFaceId(Context c, String id) { put(c, "faceId", id); }
 
     static FaceStyle custom(Context c) {

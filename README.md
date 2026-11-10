@@ -13,15 +13,15 @@ Part of the Watchman house of apps, built to the Watchman's Document.
 
 ## Versions
 
-- Phone 0.3 (versionCode 5) and watch 0.3 (versionCode 4): the code-drawn face with every option set in the phone app.
+- Phone 0.4 (versionCode 7) and watch 0.4 (versionCode 5): five face families (Sundial, Orbit, Horizon, Signal, Still), fifteen defaults plus Custom, edited in the Watch tab.
 - `face/` (Watch Face Format) is parked. It did not appear on the watch. See status below.
 
 ## Building
 
 No Gradle or Android SDK. Java, plain Android views, built with aapt2, javac and dx.
 
-    tools/build.sh phone 5 0.3 InDueTime.apk
-    tools/build.sh watch 4 0.3 InDueTime-Watch.apk 30
+    tools/build.sh phone 7 0.4 InDueTime.apk
+    tools/build.sh watch 5 0.4 InDueTime-Watch.apk 30
     tools/build.sh face 1 1.0 InDueTime-Face.apk 33
 
 The script expects `aapt2`, `android.jar` (API 35), `dx.jar` and the signing key `watchman.p12` next to it.

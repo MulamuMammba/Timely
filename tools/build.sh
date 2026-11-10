@@ -10,8 +10,9 @@ ASSETS=""; [ -d "$P/assets" ] && ASSETS="-A $P/assets"
   -0 ttf --version-code $VC --version-name "$VN" --java "$B/gen" "$B/res.zip" -o "$B/base.apk"
 if [ -d "$P/src" ]; then
 find -L "$P/src" "$B/gen" -name '*.java' > "$B/src.txt"
-javac -nowarn -encoding UTF-8 -source 8 -target 8 -bootclasspath "$T/android.jar" -classpath "$T/android.jar" -d "$B/classes" @"$B/src.txt" 2>&1 | grep -v "^warning\|JAVA_TOOL_OPTIONS\|^Note:" || true
-[ -n "$(find "$B/classes" -name '*.class' | head -1)" ] || { echo "javac failed"; exit 1; }
+if ! javac -nowarn -encoding UTF-8 -source 8 -target 8 -bootclasspath "$T/android.jar" -classpath "$T/android.jar" -d "$B/classes" @"$B/src.txt" > "$B/javac.log" 2>&1; then
+  grep -v "^warning\|JAVA_TOOL_OPTIONS\|^Note:" "$B/javac.log"; echo "javac failed"; exit 1
+fi
 java -jar "$T/dx.jar" --dex --min-sdk-version=$MIN --output="$B/classes.dex" "$B/classes" 2>&1 | grep -v JAVA_TOOL_OPTIONS || true
 DEX="$B/classes.dex"
 else

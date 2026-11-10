@@ -37,8 +37,7 @@ public class WatchActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        if (Dial.serif == null) Dial.serif = load("fraunces.ttf", Typeface.SERIF);
-        if (Dial.mono == null) Dial.mono = load("plexmono.ttf", Typeface.MONOSPACE);
+        Dial.fonts(this);
         scroll = new ScrollView(this);
         scroll.setBackgroundColor(Palette.NIGHT);
         scroll.setFillViewport(true);

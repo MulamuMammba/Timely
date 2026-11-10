@@ -38,7 +38,14 @@ public class Dial extends Service {
     static final int TYPE_LARGE_IMAGE = 8, TYPE_NO_DATA = 10;
     static final int SIZE = 450;
 
-    static Typeface serif, mono;
+    static Typeface serif, mono, sans;
+
+    static synchronized void fonts(Context c) {
+        if (sans != null) return;
+        try { sans = Typeface.createFromAsset(c.getAssets(), "figtree.ttf"); } catch (Exception e) { sans = Typeface.SANS_SERIF; }
+        try { mono = Typeface.createFromAsset(c.getAssets(), "plexmono.ttf"); } catch (Exception e) { mono = Typeface.MONOSPACE; }
+        serif = sans;
+    }
     private static final Executor EXEC = Executors.newSingleThreadExecutor();
 
     /** The always on display version. */
@@ -169,14 +176,11 @@ public class Dial extends Service {
     }
 
     static synchronized Icon render(Context c, boolean ambient) {
-        if (serif == null) {
-            try { serif = Typeface.createFromAsset(c.getAssets(), "fraunces.ttf"); } catch (Exception e) { serif = Typeface.SERIF; }
-            try { mono = Typeface.createFromAsset(c.getAssets(), "plexmono.ttf"); } catch (Exception e) { mono = Typeface.MONOSPACE; }
-        }
+        fonts(c);
         WatchData d = Link.data(c);
         Bitmap b = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(b);
-        new FaceRenderer(serif, mono).draw(cv, SIZE, SIZE, d, d.style(), System.currentTimeMillis(), ambient, FaceRenderer.TIME_NONE);
+        new FaceRenderer(sans, mono).draw(cv, SIZE, SIZE, d, d.style(), System.currentTimeMillis(), ambient);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         b.compress(Bitmap.CompressFormat.PNG, 100, out);
         b.recycle();

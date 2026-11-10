@@ -23,17 +23,14 @@ public class FaceService extends WallpaperService {
 
     @Override
     public Engine onCreateEngine() {
-        if (Dial.serif == null) {
-            try { Dial.serif = Typeface.createFromAsset(getAssets(), "fraunces.ttf"); } catch (Exception e) { Dial.serif = Typeface.SERIF; }
-            try { Dial.mono = Typeface.createFromAsset(getAssets(), "plexmono.ttf"); } catch (Exception e) { Dial.mono = Typeface.MONOSPACE; }
-        }
+        Dial.fonts(this);
         Alarms.schedule(this);
         return new Face();
     }
 
     final class Face extends Engine implements DisplayManager.DisplayListener {
         final Handler h = new Handler(Looper.getMainLooper());
-        final FaceRenderer renderer = new FaceRenderer(Dial.serif, Dial.mono);
+        final FaceRenderer renderer = new FaceRenderer(Dial.sans, Dial.mono);
         boolean visible, ambient;
         WatchData data;
         DisplayManager dm;
@@ -122,9 +119,7 @@ public class FaceService extends WallpaperService {
             h.removeCallbacks(tick);
             if (!visible) return;
             long now = System.currentTimeMillis();
-            FaceStyle st = data == null ? null : data.style();
-            boolean seconds = !ambient && st != null && st.seconds;
-            long step = seconds ? 1000 : 60000;
+            long step = 60000; // no seconds on any face
             h.postDelayed(tick, step - (now % step) + 5);
         }
 

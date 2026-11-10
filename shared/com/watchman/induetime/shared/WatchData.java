@@ -29,7 +29,7 @@ public final class WatchData {
     public long tapAt;
     public String lensId = "";          // lens the phone chose for the watch, empty for none
     public boolean tapOn = true;        // tap the wrist when a block ends
-    public String faceId = "classic";   // face used when no lens picks one
+    public String faceId = "dawn";      // face used when no lens picks one
     public final java.util.Map<String, FaceStyle> faces = new java.util.LinkedHashMap<String, FaceStyle>();
 
     /** The face style to draw, after the lens choice. */
@@ -123,7 +123,7 @@ public final class WatchData {
             d.aod = o.optString("aod", "ring"); d.sentAt = o.optLong("at");
             if (o.has("tap")) { d.tapTitle = o.optString("tap"); d.tapAt = o.optLong("tapAt"); }
             d.lensId = o.optString("lensId");
-            d.tapOn = o.optBoolean("tapOn", true); d.faceId = o.optString("faceId", "classic");
+            d.tapOn = o.optBoolean("tapOn", true); d.faceId = o.optString("faceId", "dawn");
             JSONObject fs = o.optJSONObject("faces");
             if (fs != null) {
                 java.util.Iterator<String> it = fs.keys();

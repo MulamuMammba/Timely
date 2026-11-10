@@ -70,7 +70,8 @@ public class MainActivity extends Activity {
     private final ArrayList<Screen> stack = new ArrayList<Screen>();
     private final Handler ui = new Handler(Looper.getMainLooper());
     private Ui u;
-    private FrameLayout root, overlay;
+    private FrameLayout root, overlay, watchHolder;
+    private WatchTab watchTab;
     private ScrollView scroll;
     private LinearLayout page, nav;
     private int insetTop, insetBottom, insetLeft, insetRight;
@@ -105,6 +106,12 @@ public class MainActivity extends Activity {
         page = u.col();
         scroll.addView(page, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        watchTab = new WatchTab(this, u);
+        watchHolder = new FrameLayout(this);
+        watchHolder.addView(watchTab.root, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        watchHolder.setVisibility(View.GONE);
+        root.addView(watchHolder, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         nav = buildNav();
         root.addView(nav);
@@ -142,6 +149,8 @@ public class MainActivity extends Activity {
         lp.rightMargin = Math.max(u.dp(16), insetRight + u.dp(12));
         lp.bottomMargin = insetBottom + u.dp(14);
         nav.setLayoutParams(lp);
+        if (watchHolder != null) watchHolder.setPadding(Math.max(side, insetLeft + u.dp(12)), insetTop + u.dp(14), Math.max(side, insetRight + u.dp(12)),
+                insetBottom + u.dp(56 + 14 + 12));
     }
 
     @Override
@@ -203,6 +212,10 @@ public class MainActivity extends Activity {
     void render(boolean toTop) {
         page.removeAllViews();
         Screen s = top();
+        boolean watch = Cal.allowed(this) && "watch".equals(s.id);
+        watchHolder.setVisibility(watch ? View.VISIBLE : View.GONE);
+        scroll.setVisibility(watch ? View.GONE : View.VISIBLE);
+        if (watch) { watchTab.show(); setNav("watch"); return; }
         if (!Cal.allowed(this)) { welcome(); setNav(null); return; }
         String id = s.id;
         if ("now".equals(id)) now();
@@ -217,7 +230,7 @@ public class MainActivity extends Activity {
         else if ("category".equals(id)) categoryEdit(s.cat);
         else if ("calendars".equals(id)) calendars();
         else if ("widget".equals(id)) widgetSettings();
-        else if ("watch".equals(id)) watchSettings();
+        else if ("watchlink".equals(id)) watchLink();
         else if ("checkin".equals(id)) checkinSettings();
         else if ("about".equals(id)) about();
         String t = tabOf(id);
@@ -229,6 +242,7 @@ public class MainActivity extends Activity {
         if ("now".equals(id) || "timeline".equals(id) || "block".equals(id) || "edit".equals(id)) return "day";
         if ("agenda".equals(id)) return "agenda";
         if ("lenses".equals(id) || "lens".equals(id)) return "lenses";
+        if ("watch".equals(id)) return "watch";
         return "more";
     }
 
@@ -240,8 +254,19 @@ public class MainActivity extends Activity {
         g.setStroke(u.dp(1), Palette.LINE);
         n.setBackground(g);
         n.setElevation(u.dp(10));
-        String[][] tabs = {{"day", "Day", "now"}, {"agenda", "Agenda", "agenda"}, {"lenses", "Lenses", "lenses"}, {"more", "More", "more"}};
+        String[][] tabs = {{"day", "Day", "now"}, {"agenda", "Agenda", "agenda"}, {"watch", "Watch", "watch"}, {"lenses", "Lenses", "lenses"}, {"more", "", "more"}};
         for (final String[] t : tabs) {
+            if ("more".equals(t[0])) {
+                android.widget.ImageView gear = new android.widget.ImageView(this);
+                gear.setImageResource(R.drawable.ic_gear);
+                gear.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+                gear.setTag(t[0]);
+                gear.setContentDescription("Settings");
+                gear.setClickable(true);
+                gear.setOnClickListener(new View.OnClickListener() { public void onClick(View x) { tab("more"); } });
+                n.addView(gear, new LinearLayout.LayoutParams(u.dp(52), u.dp(56)));
+                continue;
+            }
             TextView v = u.label(t[1]);
             v.setGravity(Gravity.CENTER);
             v.setTag(t[0]);
@@ -258,8 +283,10 @@ public class MainActivity extends Activity {
     private void setNav(String active) {
         nav.setVisibility(active == null ? View.GONE : View.VISIBLE);
         for (int i = 0; i < nav.getChildCount(); i++) {
-            TextView v = (TextView) nav.getChildAt(i);
-            v.setTextColor(v.getTag().equals(active) ? Palette.GOLD : Palette.FAINT);
+            View c = nav.getChildAt(i);
+            boolean on = c.getTag().equals(active);
+            if (c instanceof TextView) ((TextView) c).setTextColor(on ? Palette.GOLD : Palette.FAINT);
+            else if (c instanceof android.widget.ImageView) ((android.widget.ImageView) c).setColorFilter(on ? Palette.GOLD : Palette.FAINT);
         }
         applyInsets();
     }
@@ -1157,7 +1184,7 @@ public class MainActivity extends Activity {
         header("Settings", "More");
         String[][] rows = {
                 {"Categories", "categories"}, {"Google Calendar", "calendars"}, {"Clock widget", "widget"},
-                {"Watch face", "watch"}, {"When a block ends", "checkin"}, {"About", "about"}};
+                {"Watch link", "watchlink"}, {"When a block ends", "checkin"}, {"About", "about"}};
         LinearLayout card = u.card();
         card.setPadding(u.dp(18), u.dp(4), u.dp(18), u.dp(4));
         for (int i = 0; i < rows.length; i++) {
@@ -1376,223 +1403,11 @@ public class MainActivity extends Activity {
         add(u.quiet("Lens: " + (wl == null ? "none right now, so it shows everything." : wl.name + ".")), 14);
     }
 
-    // Watch face editor: presets, Custom, and every dial option, with a live preview
+    // Watch link: how the watch reaches this phone
 
-    private boolean previewDigital;
-
-    private void watchSettings() {
-        topBar("More", null, null);
-        header("Galaxy Watch", "Watch face");
-
-        final String faceId = Store.faceId(this);
-        final FaceStyle cur = Store.face(this, faceId);
-        final WatchData all = App.watchData(this);
-        final WatchData d = all.filtered(all.lensId);
-
-        // Live preview
-        View preview = new View(this) {
-            final FaceRenderer r = new FaceRenderer(Ui.serif, Ui.mono);
-            boolean amb;
-            {
-                setOnTouchListener(new View.OnTouchListener() {
-                    public boolean onTouch(View v, MotionEvent e) {
-                        if (e.getAction() == MotionEvent.ACTION_UP) { amb = !amb; invalidate(); v.performClick(); }
-                        return true;
-                    }
-                });
-                setContentDescription("Watch face preview. Tap to see always on display.");
-            }
-            @Override protected void onDraw(Canvas c) {
-                int s = Math.min(getWidth(), getHeight());
-                c.save();
-                c.translate((getWidth() - s) / 2f, 0);
-                android.graphics.Path clip = new android.graphics.Path();
-                clip.addCircle(s / 2f, s / 2f, s / 2f, android.graphics.Path.Direction.CW);
-                c.clipPath(clip);
-                r.draw(c, s, s, d, cur, System.currentTimeMillis(), amb, "digital".equals(cur.timeMode) ? FaceRenderer.TIME_DIGITAL : FaceRenderer.TIME_HANDS);
-                c.restore();
-                if (!amb) postInvalidateDelayed(1000);
-            }
-        };
-        preview.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-        add(preview, 18);
-        preview.getLayoutParams().height = u.dp(240);
-        add(u.quiet("Tap the preview to see always on display."), 6);
-
-        // Faces
-        add(u.label("Face"), 24);
-        final List<FaceStyle> faces = Store.faces(this);
-        String[] names = new String[faces.size()];
-        final boolean[] on = new boolean[faces.size()];
-        for (int i = 0; i < faces.size(); i++) { names[i] = faces.get(i).name; on[i] = faces.get(i).id.equals(faceId); }
-        add(u.chips(names, on, false, new Ui.OnPick() {
-            public void picked(int i) { Store.setFaceId(MainActivity.this, faces.get(i).id); App.changed(MainActivity.this); render(false); }
-        }), 8);
-        add(u.quiet("custom".equals(faceId) ? "You are editing Custom." : "Change anything below and it becomes your Custom face."), 8);
-        add(u.quiet("Lenses can each pick their own face in the lens editor."), 4);
-
-        // Time
-        add(u.label("Time"), 24);
-        add(u.segmented(new String[]{"Analog", "Digital"}, "digital".equals(cur.timeMode) ? 1 : 0, new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.timeMode = i == 1 ? "digital" : "analog"; saveFace(f); }
-        }), 8);
-        if ("digital".equals(cur.timeMode)) {
-            add(u.label("Font"), 16);
-            final String[] fonts = {"serif", "sans", "mono"};
-            add(u.segmented(new String[]{"Serif", "Sans", "Mono"}, idx(fonts, cur.font), new Ui.OnPick() {
-                public void picked(int i) { FaceStyle f = editable(cur); f.font = fonts[i]; saveFace(f); }
-            }), 8);
-            add(u.label("Size"), 16);
-            final String[] sizes = {"small", "medium", "large"};
-            add(u.segmented(new String[]{"Small", "Medium", "Large"}, idx(sizes, cur.timeSize), new Ui.OnPick() {
-                public void picked(int i) { FaceStyle f = editable(cur); f.timeSize = sizes[i]; saveFace(f); }
-            }), 8);
-            add(u.segmented(new String[]{"24 hour", "12 hour"}, cur.h24 ? 0 : 1, new Ui.OnPick() {
-                public void picked(int i) { FaceStyle f = editable(cur); f.h24 = i == 0; saveFace(f); }
-            }), 8);
-        } else {
-            add(u.label("Hands"), 16);
-            final String[] hs = {"slim", "tapered", "baton"};
-            add(u.segmented(new String[]{"Slim", "Tapered", "Baton"}, idx(hs, cur.hands), new Ui.OnPick() {
-                public void picked(int i) { FaceStyle f = editable(cur); f.hands = hs[i]; saveFace(f); }
-            }), 8);
-        }
-        add(u.label("digital".equals(cur.timeMode) ? "Time colour" : "Hand colour"), 16);
-        add(colourRow(cur.handColor, new ColourCb() { public void set(FaceStyle f, int col) { f.handColor = col; } }, cur), 10);
-        add(u.switchRow("digital".equals(cur.timeMode) ? "Seconds dot on the ring" : "Seconds hand", cur.seconds, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.seconds = v; saveFace(f); }
-        }), 8);
-        if (cur.seconds) {
-            add(u.label("Seconds colour"), 12);
-            add(colourRow(cur.secondsColor, new ColourCb() { public void set(FaceStyle f, int col) { f.secondsColor = col; } }, cur), 10);
-        }
-
-        // Ground and accent
-        add(u.label("Ground"), 24);
-        final String[] grounds = {"night", "black", "glow", "navy", "amethyst"};
-        final boolean[] gOn = new boolean[grounds.length];
-        for (int i = 0; i < grounds.length; i++) gOn[i] = grounds[i].equals(cur.ground);
-        add(u.chips(new String[]{"Night", "Black", "Glow", "Navy", "Amethyst"}, gOn, false, new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.ground = grounds[i]; saveFace(f); }
-        }), 8);
-
-        add(u.label("Accent"), 20);
-        add(colourRow(cur.accent, new ColourCb() { public void set(FaceStyle f, int col) { f.accent = col; } }, cur), 10);
-        add(u.quiet("The accent marks the block you are in."), 6);
-
-        // Ring
-        add(u.label("Ring"), 24);
-        final String[] widths = {"thin", "regular", "bold"};
-        add(u.segmented(new String[]{"Thin", "Regular", "Bold"}, idx(widths, cur.ringWidth), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.ringWidth = widths[i]; saveFace(f); }
-        }), 8);
-        add(u.segmented(new String[]{"Next 6 hours", "Next 12 hours"}, cur.ringHours <= 6 ? 0 : 1, new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.ringHours = i == 0 ? 6 : 12; saveFace(f); }
-        }), 8);
-        add(u.label("Gaps between blocks"), 16);
-        final String[] gaps = {"none", "small", "wide"};
-        add(u.segmented(new String[]{"None", "Small", "Wide"}, idx(gaps, cur.gap), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.gap = gaps[i]; saveFace(f); }
-        }), 8);
-        add(u.label("Current block"), 16);
-        final String[] swells = {"none", "soft", "strong"};
-        add(u.segmented(new String[]{"Same size", "Swell", "Big swell"}, idx(swells, cur.swell), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.swell = swells[i]; saveFace(f); }
-        }), 8);
-        add(u.switchRow("Google events on the ring", cur.ringGoogle, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.ringGoogle = v; saveFace(f); }
-        }), 8);
-        add(u.rule(), 0);
-        add(u.switchRow("Fade blocks already passed", cur.fadePast, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.fadePast = v; saveFace(f); }
-        }), 0);
-
-        // Markers
-        add(u.label("Markers"), 24);
-        final String[] marks = {"none", "hours", "minutes", "numerals"};
-        add(u.segmented(new String[]{"None", "Hours", "Minutes", "12 3 6 9"}, idx(marks, cur.markers), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.markers = marks[i]; saveFace(f); }
-        }), 8);
-
-        // Centre lines
-        add(u.label("Centre text"), 24);
-        add(u.quiet("Up to three lines, top to bottom."), 4);
-        final String[] keys = {"", "block", "until", "left", "next", "date", "lens"};
-        final String[] keyNames = {"Nothing", "Block", "Until", "Time left", "Next", "Date", "Lens"};
-        for (int n = 0; n < 3; n++) {
-            final int line = n;
-            String have = n < cur.lines.size() ? cur.lines.get(n) : "";
-            final boolean[] lOn = new boolean[keys.length];
-            for (int i = 0; i < keys.length; i++) lOn[i] = keys[i].equals(have);
-            add(u.label("Line " + (n + 1)), 14);
-            add(u.chips(keyNames, lOn, false, new Ui.OnPick() {
-                public void picked(int i) {
-                    FaceStyle f = editable(cur);
-                    while (f.lines.size() <= line) f.lines.add("");
-                    f.lines.set(line, keys[i]);
-                    List<String> clean = new ArrayList<String>();
-                    for (String k : f.lines) if (k.length() > 0) clean.add(k);
-                    f.lines.clear();
-                    f.lines.addAll(clean);
-                    saveFace(f);
-                }
-            }), 6);
-        }
-
-        // Icon
-        add(u.label("Icon"), 24);
-        add(u.switchRow("Show the category icon", cur.icon, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.icon = v; saveFace(f); }
-        }), 2);
-        if (cur.icon) {
-            final String[] sizes = {"small", "medium", "large"};
-            add(u.segmented(new String[]{"Small", "Medium", "Large"}, idx(sizes, cur.iconSize), new Ui.OnPick() {
-                public void picked(int i) { FaceStyle f = editable(cur); f.iconSize = sizes[i]; saveFace(f); }
-            }), 6);
-        }
-
-        // Always on display
-        add(u.label("Always on display"), 24);
-        add(u.switchRow("Keep the ring", cur.aodRing, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.aodRing = v; saveFace(f); }
-        }), 2);
-        add(u.rule(), 0);
-        add(u.switchRow("Keep the icon", cur.aodIcon, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.aodIcon = v; saveFace(f); }
-        }), 0);
-        add(u.rule(), 0);
-        add(u.switchRow("Keep the first line of text", cur.aodText, new Ui.OnToggle() {
-            public void toggled(boolean v) { FaceStyle f = editable(cur); f.aodText = v; saveFace(f); }
-        }), 0);
-        add(u.label("How dim"), 16);
-        final String[] dims = {"low", "medium", "high"};
-        add(u.segmented(new String[]{"A little", "Medium", "Very"}, idx(dims, cur.aodDim), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.aodDim = dims[i]; saveFace(f); }
-        }), 8);
-        add(u.label("Ring when dim"), 16);
-        final String[] rs = {"outline", "solid"};
-        add(u.segmented(new String[]{"Outline", "Solid"}, idx(rs, cur.aodRingStyle), new Ui.OnPick() {
-            public void picked(int i) { FaceStyle f = editable(cur); f.aodRingStyle = rs[i]; saveFace(f); }
-        }), 8);
-
-        // Start Custom from a preset
-        add(u.label("Start Custom from"), 24);
-        final List<FaceStyle> presets = FaceStyle.presets();
-        String[] pn = new String[presets.size()];
-        for (int i = 0; i < pn.length; i++) pn[i] = presets.get(i).name;
-        add(u.chips(pn, new boolean[pn.length], false, new Ui.OnPick() {
-            public void picked(int i) {
-                Store.saveCustom(MainActivity.this, presets.get(i).copy());
-                Store.setFaceId(MainActivity.this, "custom");
-                App.changed(MainActivity.this);
-                toast("Custom now starts from " + presets.get(i).name);
-                render(false);
-            }
-        }), 8);
-
-
-        // The link
-        add(u.label("Your watch"), 26);
+    private void watchLink() {
+        topBar("Back", null, null);
+        header("Galaxy Watch", "Watch link");
         LinearLayout card = u.card();
         card.addView(u.switchRow("Link with my watch", WatchLink.enabled(this), new Ui.OnToggle() {
             public void toggled(boolean v) {
@@ -1610,7 +1425,7 @@ public class MainActivity extends Activity {
             }
         }));
         card.addView(u.quiet(WatchLink.enabled(this) ? WatchLink.lastStatus(this) : "Off. Your watch cannot fetch your day."), u.lp(2));
-        add(card, 8);
+        add(card, 18);
         LinearLayout steps = u.card();
         steps.addView(u.label("First time"));
         steps.addView(u.body("1. Turn on Link with my watch above."), u.lp(8));
@@ -1620,52 +1435,6 @@ public class MainActivity extends Activity {
         add(steps, 12);
     }
 
-    interface ColourCb { void set(FaceStyle f, int colour); }
-
-    static final int[] COLOURS = {Palette.LINEN, Palette.GOLD, Palette.LAV, 0xFF8B78D8, 0xFF7FA39A, 0xFFC995A6, 0xFF8EA4CF, 0xFFD4A373};
-
-    private View colourRow(int current, final ColourCb cb, final FaceStyle cur) {
-        Ui.FlowLayout sw = new Ui.FlowLayout(this, u.dp(12));
-        for (final int col : COLOURS) {
-            View o = u.orb(col, 30);
-            o.setContentDescription("Colour");
-            if (col == current) {
-                FrameLayout f = new FrameLayout(this);
-                GradientDrawable ring = new GradientDrawable();
-                ring.setShape(GradientDrawable.OVAL);
-                ring.setStroke(u.dp(2), Palette.LINEN);
-                f.setBackground(ring);
-                f.setPadding(u.dp(4), u.dp(4), u.dp(4), u.dp(4));
-                f.addView(o);
-                sw.addView(f);
-            } else {
-                o.setOnClickListener(new View.OnClickListener() {
-                    public void onClick(View v) { FaceStyle f = editable(cur); cb.set(f, col); saveFace(f); }
-                });
-                sw.addView(o);
-            }
-        }
-        return sw;
-    }
-
-    private static int idx(String[] arr, String v) {
-        for (int i = 0; i < arr.length; i++) if (arr[i].equals(v)) return i;
-        return 0;
-    }
-
-    /** Editing a preset turns it into Custom. */
-    private FaceStyle editable(FaceStyle cur) {
-        FaceStyle f = cur.copy();
-        if (!"custom".equals(cur.id)) toast("Saved as your Custom face");
-        return f;
-    }
-
-    private void saveFace(FaceStyle f) {
-        Store.saveCustom(this, f);
-        Store.setFaceId(this, "custom");
-        App.changed(this);
-        render(false);
-    }
     private void checkinSettings() {
         topBar("More", null, null);
         header("Block end", "When a block ends");
