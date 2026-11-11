@@ -33,3 +33,7 @@ The Watch Face Format face installs but does not show. A minimal test face does 
 Next: install split test faces (options, dial, font) to find the rejected part, or read the watch log:
 
     logcat -d | grep -iE "watchface|wff|induetime" | tail -40
+
+## Storehouse
+
+`apk/` holds the signed APK that Storehouse installs from. Rebuild it and commit it before every push.
